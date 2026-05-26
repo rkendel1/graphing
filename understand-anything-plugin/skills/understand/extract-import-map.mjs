@@ -430,9 +430,7 @@ export function resolveTsJsImport(rawImport, file, ctx) {
           const relativeToConfig = normalizedBase
             ? posix.join(normalizedBase, mapped)
             : mapped;
-          const candidate = tsConfigDir
-            ? posix.join(tsConfigDir, relativeToConfig)
-            : relativeToConfig;
+          const candidate = posix.join(tsConfigDir, relativeToConfig);
           const probed = probeWithExtensions(candidate, ctx.fileSet);
           if (probed) return probed;
         }
