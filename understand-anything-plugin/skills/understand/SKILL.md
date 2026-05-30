@@ -770,11 +770,11 @@ Report to the user: `[Phase 7/7] Saving knowledge graph...`
    }
    ```
 
-4. Clean up intermediate files:
+4. Move intermediate files into reversible trash and purge old trash:
    ```bash
-   rm -rf $PROJECT_ROOT/.understand-anything/intermediate
-   rm -rf $PROJECT_ROOT/.understand-anything/tmp
+   node <SKILL_DIR>/cleanup-workdirs.mjs $PROJECT_ROOT
    ```
+   The cleanup script renames the fresh `intermediate/` and `tmp/` work directories into a timestamped `.understand-anything/.trash-*` directory, then purges only trash directories older than 7 days.
 
 5. Report a summary to the user containing:
    - Project name and description
