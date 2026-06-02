@@ -123,7 +123,9 @@ function getGitHash(projectRoot) {
 async function loadCore() {
   if (!existsSync(CORE_DIST)) {
     throw new Error(
-      `Core build not found at ${CORE_DIST}. Run "pnpm install" in ${REPO_ROOT} first.`,
+      `Core build not found at ${CORE_DIST}. ` +
+      `Run "pnpm --filter @understand-anything/core build" in ${REPO_ROOT} ` +
+      `after installing dependencies.`,
     );
   }
   return import(pathToFileURL(CORE_DIST).href);
@@ -241,9 +243,7 @@ export async function analyzeProject(projectArg) {
     .detectFrameworks(manifests)
     .map((fw) => fw.id)
     .sort((a, b) => a.localeCompare(b));
-  graph.project.description =
-    `Standalone structural analysis for ${projectName}. ` +
-    'For semantic summaries and domain modeling, run plugin/skill workflows.';
+  graph.project.description = `Standalone structural analysis for ${projectName}. For semantic summaries and domain modeling, run plugin/skill workflows.`;
 
   graph.layers = detectLayers(graph);
   graph.tour = generateHeuristicTour(graph);
