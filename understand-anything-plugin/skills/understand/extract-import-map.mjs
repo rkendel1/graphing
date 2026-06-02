@@ -370,14 +370,54 @@ const TS_EXT_PROBES = [
 ];
 
 /**
+ * NodeNext / Node16 / Bundler-with-explicit-extensions ESM TypeScript convention:
+ * TypeScript does NOT rewrite import specifiers during compilation, so source
+ * files import their COMPILED specifier (`./config.js`) even when only
+ * `./config.ts` exists on disk. We map each compiled-output extension to the
+ * TS source extensions that could have produced it, in priority order.
+ *
+ * Without this rewrite, ESM-TS projects (which is now the default for any new
+ * TS project) end up with a near-edgeless knowledge graph because every
+ * project-internal import fails to resolve. (#294)
+ */
+const NODENEXT_REWRITES = {
+  '.js': ['.ts', '.tsx', '.js', '.jsx'],
+  '.jsx': ['.tsx', '.jsx'],
+  '.mjs': ['.mts', '.mjs', '.ts'],
+  '.cjs': ['.cts', '.cjs', '.ts'],
+};
+
+/**
  * Try ext probes against the file set for the given base path. Returns the
  * first matching project-relative path, or null. If the base path already has
  * a code extension AND exists in the file set, returns it directly.
+ *
+ * For NodeNext-style imports (`./foo.js` where only `./foo.ts` exists), apply
+ * the source-extension rewrite — see NODENEXT_REWRITES above.
  */
 function probeWithExtensions(basePath, fileSet) {
   if (!basePath) return null;
-  // Exact match (import already had an extension)
+  // Exact match (import already had an extension that resolves on disk)
   if (fileSet.has(basePath)) return basePath;
+
+  // NodeNext rewrite: if the basePath ends with a compiled-output extension
+  // but no such file exists, try the corresponding source extensions. We do
+  // this BEFORE the legacy "append extensions" loop because for an import
+  // like `./foo.js`, appending `.ts` would produce `foo.js.ts` (always wrong)
+  // while the correct candidate is `foo.ts`.
+  for (const [outExt, srcExts] of Object.entries(NODENEXT_REWRITES)) {
+    if (!basePath.endsWith(outExt)) continue;
+    const stem = basePath.slice(0, -outExt.length);
+    for (const srcExt of srcExts) {
+      const candidate = stem + srcExt;
+      if (fileSet.has(candidate)) return candidate;
+    }
+    // The basePath had an explicit compiled extension — don't fall through
+    // to the "append extensions" loop, which would produce nonsense like
+    // `foo.js.ts`. If NodeNext rewrite didn't find anything, return null.
+    return null;
+  }
+
   for (const ext of TS_EXT_PROBES) {
     const candidate = basePath + ext;
     if (fileSet.has(candidate)) return candidate;
