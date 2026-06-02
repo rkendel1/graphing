@@ -124,7 +124,7 @@ async function loadCore() {
   if (!existsSync(CORE_DIST)) {
     throw new Error(
       `Core build not found at ${CORE_DIST}. ` +
-      `Run "pnpm --filter @understand-anything/core build" in ${REPO_ROOT} ` +
+      'Run "pnpm --filter @understand-anything/core build" in the repository root ' +
       `after installing dependencies.`,
     );
   }
@@ -203,10 +203,11 @@ export async function analyzeProject(projectArg) {
     const complexity = inferComplexity(totalLines, analysis);
 
     if (file.fileCategory === 'code' || file.fileCategory === 'script') {
+      const summaryText = `${file.language} ${file.fileCategory} file: ${file.path}`;
       builder.addFileWithAnalysis(file.path, analysis, {
         summaries: {},
-        fileSummary: `${file.language} ${file.fileCategory} file: ${file.path}`,
-        summary: `${file.language} ${file.fileCategory} file: ${file.path}`,
+        fileSummary: summaryText,
+        summary: summaryText,
         tags: [file.language, file.fileCategory],
         complexity,
       });
