@@ -43,7 +43,7 @@
 
 **You just joined a new team. The codebase is 200,000 lines of code. Where do you even start?**
 
-Understand Anything is a [Claude Code Plugin](https://code.claude.com/docs/en/plugins-reference#plugins-reference) that analyzes your project with a multi-agent pipeline, builds a knowledge graph of every file, function, class, and dependency, then gives you an interactive dashboard to explore it all visually. Stop reading code blind. Start seeing the big picture.
+Understand Anything is a multi-platform coding assistant plugin/skill set that analyzes your project with a multi-agent pipeline, builds a knowledge graph of every file, function, class, and dependency, then gives you an interactive dashboard to explore it all visually. Stop reading code blind. Start seeing the big picture.
 
 > **The goal isn't a graph that wows you with how complex your codebase is — it's a graph that quietly teaches you how every piece fits together.**
 
@@ -102,6 +102,9 @@ Point `/understand-knowledge` at a [Karpathy-pattern LLM wiki](https://gist.gith
 ---
 
 ## 🚀 Quick Start
+
+> [!TIP]
+> **No Claude Code?** Install with `install.sh` / `install.ps1` in the [Multi-Platform Installation](#-multi-platform-installation) section, then invoke the same skill names in your assistant (`understand`, `understand-dashboard`, `understand-chat`, etc.). The output is the same `.understand-anything/knowledge-graph.json` used by the dashboard.
 
 ### 1. Install the plugin
 
