@@ -37,6 +37,29 @@ import { createRequire } from 'node:module';
 import { dirname, resolve, join, posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+
+/**
+ * Read a list of files concurrently while preserving result order. Failures
+ * are returned in-place as `{ raw: null, err }` so callers can emit the same
+ * per-file warnings they did under the previous sequential `readFileSync`
+ * loops.
+ *
+ * `paths` is a list of `{ key, absPath }` pairs; `key` is whatever the caller
+ * wants to attach the result to (typically a project-relative POSIX path).
+ */
+async function readFilesParallel(paths) {
+  return Promise.all(
+    paths.map(async ({ key, absPath }) => {
+      try {
+        const raw = await readFile(absPath, 'utf-8');
+        return { key, raw, err: null };
+      } catch (err) {
+        return { key, raw: null, err };
+      }
+    }),
+  );
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // skills/understand/ -> plugin root is two dirs up
@@ -180,20 +203,25 @@ function parseTsConfigText(raw) {
  *      where the stripper damaged a string literal containing `//`.
  *   3. If both fail, warn and skip — that tsconfig contributes no aliases.
  */
-function loadTsConfigs(projectRoot, files) {
+async function loadTsConfigs(projectRoot, files) {
   const out = new Map();
+  // Collect the candidate paths in the original file order before reading,
+  // so warning emit order matches the previous sequential implementation.
+  const candidates = [];
   for (const f of files) {
     const p = toPosix(f.path);
     const base = p.includes('/') ? p.slice(p.lastIndexOf('/') + 1) : p;
     if (base !== 'tsconfig.json') continue;
     const absPath = join(projectRoot, p);
     if (!existsSync(absPath)) continue;
-    let raw;
-    try {
-      raw = readFileSync(absPath, 'utf-8');
-    } catch (err) {
+    candidates.push({ key: p, absPath });
+  }
+  const reads = await readFilesParallel(candidates);
+  for (const { key: p, raw, err } of reads) {
+    if (err) {
+      // absPath isn't carried through the helper return shape; reconstruct it.
       process.stderr.write(
-        `Warning: extract-import-map: tsconfig.json at ${absPath} failed ` +
+        `Warning: extract-import-map: tsconfig.json at ${join(projectRoot, p)} failed ` +
         `to read (${err.message}) — path aliases from this config will ` +
         `not be applied — relative imports unaffected\n`,
       );
@@ -202,7 +230,7 @@ function loadTsConfigs(projectRoot, files) {
     const parsed = parseTsConfigText(raw);
     if (!parsed) {
       process.stderr.write(
-        `Warning: extract-import-map: tsconfig.json at ${absPath} failed ` +
+        `Warning: extract-import-map: tsconfig.json at ${join(projectRoot, p)} failed ` +
         `to parse — path aliases from this config will not be applied ` +
         `— relative imports unaffected\n`,
       );
@@ -237,20 +265,20 @@ function loadTsConfigs(projectRoot, files) {
  * The resolver uses each module's prefix to translate
  * `import "github.com/foo/bar/x"` into the project-internal `x/<file>.go`.
  */
-function loadGoModules(projectRoot, files) {
+async function loadGoModules(projectRoot, files) {
   const out = new Map();
+  const candidates = [];
   for (const f of files) {
     const p = toPosix(f.path);
     const base = p.includes('/') ? p.slice(p.lastIndexOf('/') + 1) : p;
     if (base !== 'go.mod') continue;
     const absPath = join(projectRoot, p);
     if (!existsSync(absPath)) continue;
-    let raw;
-    try {
-      raw = readFileSync(absPath, 'utf-8');
-    } catch {
-      continue;
-    }
+    candidates.push({ key: p, absPath });
+  }
+  const reads = await readFilesParallel(candidates);
+  for (const { key: p, raw, err } of reads) {
+    if (err) continue;
     let moduleName = '';
     for (const line of raw.split(/\r?\n/)) {
       const trimmed = line.replace(/\/\/.*$/, '').trim();
@@ -306,10 +334,17 @@ function findNearestConfigDir(startDir, configMap) {
  *
  * Build once; pass everywhere.
  */
-function buildResolutionContext(projectRoot, files) {
+async function buildResolutionContext(projectRoot, files) {
   const fileSet = new Set(files.map(f => toPosix(f.path)));
-  const tsConfigs = loadTsConfigs(projectRoot, files);
-  const goModules = loadGoModules(projectRoot, files);
+
+  // The three config-loader passes are independent and each does its own
+  // batched parallel I/O; run them concurrently so the wait for a slow
+  // tsconfig.json read doesn't block go.mod / composer.json scanning.
+  const [tsConfigs, goModules, phpAutoloads] = await Promise.all([
+    loadTsConfigs(projectRoot, files),
+    loadGoModules(projectRoot, files),
+    loadPhpAutoloads(projectRoot, files),
+  ]);
 
   // Index .go files by their parent directory so the Go resolver can
   // expand a package-level import to all member .go files in O(1).
@@ -330,8 +365,6 @@ function buildResolutionContext(projectRoot, files) {
   const javaIndex = buildSuffixIndex(files, p => p.endsWith('.java'));
   const kotlinIndex = buildSuffixIndex(files, p => p.endsWith('.kt'));
   const csIndex = buildSuffixIndex(files, p => p.endsWith('.cs'));
-
-  const phpAutoloads = loadPhpAutoloads(projectRoot, files);
 
   return {
     projectRoot,
@@ -1028,20 +1061,22 @@ function parseComposerAutoloadText(raw) {
  * at the bad file and skips it. The rest of the project's PHP imports keep
  * resolving via whichever composer.json files parsed cleanly.
  */
-function loadPhpAutoloads(projectRoot, files) {
+async function loadPhpAutoloads(projectRoot, files) {
   const out = new Map();
+  const candidates = [];
   for (const f of files) {
     const p = toPosix(f.path);
     const base = p.includes('/') ? p.slice(p.lastIndexOf('/') + 1) : p;
     if (base !== 'composer.json') continue;
     const absPath = join(projectRoot, p);
     if (!existsSync(absPath)) continue;
-    let raw;
-    try {
-      raw = readFileSync(absPath, 'utf-8');
-    } catch (err) {
+    candidates.push({ key: p, absPath });
+  }
+  const reads = await readFilesParallel(candidates);
+  for (const { key: p, raw, err } of reads) {
+    if (err) {
       process.stderr.write(
-        `Warning: extract-import-map: composer.json at ${absPath} failed ` +
+        `Warning: extract-import-map: composer.json at ${join(projectRoot, p)} failed ` +
         `to read (${err.message}) — PSR-4 namespace mapping from this ` +
         `composer.json unavailable — PHP imports under this package ` +
         `will not resolve\n`,
@@ -1051,7 +1086,7 @@ function loadPhpAutoloads(projectRoot, files) {
     const parsed = parseComposerAutoloadText(raw);
     if (parsed === null) {
       process.stderr.write(
-        `Warning: extract-import-map: composer.json at ${absPath} failed ` +
+        `Warning: extract-import-map: composer.json at ${join(projectRoot, p)} failed ` +
         `to parse — PSR-4 namespace mapping unavailable — PHP imports ` +
         `under this package will not resolve\n`,
       );
@@ -1421,8 +1456,10 @@ async function main() {
     );
   }
 
-  // Build resolution context (cached configs)
-  const ctx = buildResolutionContext(projectRoot, files);
+  // Build resolution context (cached configs). The loader pass for the
+  // tsconfig/go.mod/composer.json files inside is parallelised — see
+  // `buildResolutionContext`.
+  const ctx = await buildResolutionContext(projectRoot, files);
 
   const importMap = {};
   let filesWithImports = 0;
