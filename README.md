@@ -184,7 +184,7 @@ Understand-Anything works across multiple AI coding platforms.
 /plugin install understand-anything
 ```
 
-### One-line install (Codex / OpenCode / OpenClaw / Antigravity / Gemini CLI / Pi Agent / Vibe CLI / VS Code Copilot / Hermes / Cline / KIMI CLI / Trae)
+### One-line install (Codex / OpenCode / OpenClaw / Antigravity / Gemini CLI / Pi Agent / Vibe CLI / VS Code Copilot / Hermes / Cline / KIMI CLI / Trae / Kiro)
 
 **macOS / Linux:**
 ```bash
@@ -200,7 +200,7 @@ iwr -useb https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/ins
 
 The installer clones the repo to `~/.understand-anything/repo` and creates the right symlinks for the chosen platform. Restart your CLI/IDE afterwards.
 
-- Supported `<platform>` values: `gemini`, `codex`, `opencode`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`, `trae`
+- Supported `<platform>` values: `gemini`, `codex`, `opencode`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`, `trae`, `kiro`
 - Update later: `./install.sh --update`
 - Uninstall: `./install.sh --uninstall <platform>`
 
@@ -222,6 +222,18 @@ For personal skills (available across all projects), run the `install.sh` above 
 copilot plugin install Lum1104/Understand-Anything:understand-anything-plugin
 ```
 
+### Kiro CLI / IDE
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Lum1104/Understand-Anything/main/install.sh | bash -s kiro
+```
+
+After installation:
+- **Kiro CLI**: `kiro-cli chat --agent understand "Analyze this project"`
+- **Kiro IDE**: Open the cloned repo — auto-discovered via `.kiro-plugin/plugin.json`
+
+For personal skills (available across all projects), run the `install.sh` above with the `kiro` platform.
+
 ### Platform Compatibility
 
 | Platform | Status | Install Method |
@@ -241,6 +253,7 @@ copilot plugin install Lum1104/Understand-Anything:understand-anything-plugin
 | Cline | ✅ Supported | `install.sh cline` |
 | KIMI CLI | ✅ Supported | `install.sh kimi` |
 | Trae | ✅ Supported | `install.sh trae` |
+| Kiro CLI / IDE | ✅ Supported | `install.sh kiro` |
 
 ---
 
