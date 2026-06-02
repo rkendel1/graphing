@@ -245,6 +245,33 @@ copilot plugin install Lum1104/Understand-Anything:understand-anything-plugin
 | KIMI CLI | ✅ Supported | `install.sh kimi` |
 | Trae | ✅ Supported | `install.sh trae` |
 
+### Standalone CLI (no skills/plugin host)
+
+If you want terminal-only usage in VS Code (without invoking `/understand`-style skills), use the built-in standalone CLI:
+
+```bash
+# From the repository root
+pnpm install
+
+# Generate .understand-anything/knowledge-graph.json for the current folder
+pnpm ua analyze .
+
+# Or analyze another project
+pnpm ua analyze /absolute/path/to/project
+
+# Launch dashboard for that project
+pnpm ua dashboard /absolute/path/to/project
+```
+
+You can also run it as a direct executable after local install:
+
+```bash
+node ./scripts/ua.mjs analyze .
+```
+
+> [!NOTE]
+> Standalone mode uses deterministic static/structural analysis so you can run it without Claude/Copilot/Cursor skill hosts. For full semantic summaries and richer domain modeling, use the plugin/skill workflow.
+
 ---
 
 ## 📦 Share the Graph with Your Team
